@@ -1,0 +1,10 @@
+name: Nature7
+version: '${version}'
+main: io.github.glocation87.nature7.Nature7Plugin
+api-version: '26.2'
+description: A minigame engine.
+
+permissions:
+  nature7.admin:
+    description: Force start sessions and other admin commands.
+    default: op
