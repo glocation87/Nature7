@@ -14,14 +14,14 @@ public record GameType(
     Material icon,
     int minPlayers,
     int maxPlayers,
-    Function<String, Boolean> validator
+    Function<String, Boolean> factory
 ) {
     private static final Pattern ID_PATTERN = Pattern.compile("^[a-z0-9_]+$");
     public GameType {
         Objects.requireNonNull(id, "id cannot be null");
         Objects.requireNonNull(displayName, "displayName cannot be null");
         Objects.requireNonNull(icon, "icon cannot be null");
-        Objects.requireNonNull(validator, "validator cannot be null");
+        Objects.requireNonNull(factory, "factory cannot be null");
 
         if (!ID_PATTERN.matcher(id).matches()) {
             throw new IllegalArgumentException("id must match pattern: " + ID_PATTERN.pattern());
