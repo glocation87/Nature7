@@ -20,7 +20,7 @@ final class EventDispatcher {
     <E extends Event> void listen(Class<? extends Event> event_type, Consumer<? super E> event_handler) {
         //invoke registrar callback on every .listen call
         registrar_callback.accept(event_type);
-        listeners.computeIfAbsent(event_type, key -> new ArrayList<>()).add(event-> event_handler.accept(event_type.cast(event)));
+        listeners.computeIfAbsent(event_type, key -> new ArrayList<>()).add(event-> event_handler.accept(typeof(event)));
     }
 
     void dispatch(Class<? extends Event> event_type, Event event) {
@@ -32,6 +32,6 @@ final class EventDispatcher {
     }
 
     void clear() {
-        handlers.clear();
+        listeners.clear();
     }
 }

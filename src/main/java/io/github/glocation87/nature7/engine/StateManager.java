@@ -19,7 +19,7 @@ public final class StateManager {
     public States nextState() {
         States _nextState;
         if (current_state.ordinal() >= States.values().length) {
-            _nextState = DISPOSED;
+            _nextState = States.DISPOSED;
         }
         _nextState = States.values()[current_state.ordinal() + 1];
         return jumpTo(_nextState);

@@ -11,7 +11,7 @@ import io.github.glocation87.nature7.engine.SessionProcess;
 * the engine will hook lifecycle events on inherited instances
 * callbacks will execute defined behavior in respective subclasses
 */
-abstract class MinigameProcess {
+public abstract class MinigameProcess {
     protected final SessionProcess session;
 
     protected MinigameProcess(SessionProcess session) {
@@ -48,8 +48,8 @@ abstract class MinigameProcess {
     }
 
     //Event dispatch listener hook
-    /*protected final <E extends Event> void listen(Class<E> type, Consumer<? super E> event_handler) {
+    protected final <E extends Event> void listen(Class<E> type, Consumer<? super E> event_handler) {
         session.events().listen(type, event_handler);
     }
-    */
+
 }

@@ -20,6 +20,7 @@ import io.github.glocation87.nature7.types.GameType;
 import io.github.glocation87.nature7.engine.MinigameProcess;
 import io.github.glocation87.nature7.engine.StateManager;
 import io.github.glocation87.nature7.engine.EventDispatcher;
+import io.github.glocation87.nature7.engine.SessionIndex;
 
 //handles state machine transitions and lifecycle events for a single game session
 public final class SessionProcess {
@@ -50,7 +51,7 @@ public final class SessionProcess {
         PlayerStateService player_states,
         SessionIndex index,
         EventDispatcher events,
-        Consumer<Session> on_dispose,
+        Consumer<SessionProcess> on_dispose,
         Logger logger
     ) {
         this.type = type;
@@ -94,13 +95,17 @@ public final class SessionProcess {
         return persistent_players.size();
     }
 
+    EventDispatcher events() {
+        return events;
+    }
+
     private String describe() {
-        return type.id() + " session " + id;
+        return type.id() + " session " + session_id;
     }
 
     public List<Player> players() {
-        List<Player> online = new ArrayList<>(players.size());
-        for (UUID uuid : players) {
+        List<Player> online = new ArrayList<>(persistent_players.size());
+        for (UUID uuid : persistent_players) {
             Player player = Bukkit.getPlayer(uuid);
             if (player != null) {
                 online.add(player);
@@ -110,14 +115,14 @@ public final class SessionProcess {
     }
 
     public boolean canJoin() {
-        if (state() != States.WAITING) {
-            return false;
-        }
+        if (playerCount() >= type().maxPlayers()) return false;
+        if (state() != States.WAITING) return false;
         return true;
     }
 
     boolean onPlayerJoin(Player player) {
         if (!canJoin()) {
+            Logger.log(Level.WARNING, "Player cannot join this session process");
             return false;
         }
         persistent_players.add(player.getUniqueId());
@@ -184,7 +189,7 @@ public final class SessionProcess {
         }
         countdown--;
         if (countdown <= 0) {
-            start()
+            start();
         } else if (countdown <= 5) {
             broadcastMessage(Component.text("Game starting in " + countdown + " seconds", NamedTextColor.YELLOW));
         }
@@ -233,7 +238,7 @@ public final class SessionProcess {
                 //player_states.restore(player);
 
             }
-            players.clear()
+            players.clear();
             events.clear();
             on_dispose.accept(this);
         }
