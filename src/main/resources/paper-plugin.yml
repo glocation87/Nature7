@@ -1,6 +1,6 @@
 name: Nature7
 version: '${version}'
-main: io.github.glocation87.nature7.Nature7Plugin
+main: io.github.glocation87.nature7.NatureEngine
 api-version: '26.2'
 description: A minigame engine.
 

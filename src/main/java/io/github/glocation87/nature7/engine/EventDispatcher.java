@@ -17,10 +17,10 @@ final class EventDispatcher {
 
     // update listener registry if event is absent
     // populate listener with type -> List<Consumer<Event>>>, each type maps to a list of callbacks
-    <E extends Event> void listen(Class<? extends Event> event_type, Consumer<? super E> event_handler) {
+    <E extends Event> void listen(Class<E> event_type, Consumer<? super E> event_handler) {
         //invoke registrar callback on every .listen call
         registrar_callback.accept(event_type);
-        listeners.computeIfAbsent(event_type, key -> new ArrayList<>()).add(event-> event_handler.accept(typeof(event)));
+        listeners.computeIfAbsent(event_type, key -> new ArrayList<>()).add(event -> event_handler.accept(event_type.cast(event)));
     }
 
     void dispatch(Class<? extends Event> event_type, Event event) {

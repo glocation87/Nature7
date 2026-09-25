@@ -16,11 +16,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.jspecify.annotations.Nullable;
+import io.github.glocation87.nature7.player.PlayerStateService;
 import io.github.glocation87.nature7.types.GameType;
-import io.github.glocation87.nature7.engine.MinigameProcess;
-import io.github.glocation87.nature7.engine.StateManager;
-import io.github.glocation87.nature7.engine.EventDispatcher;
-import io.github.glocation87.nature7.engine.SessionIndex;
 
 //handles state machine transitions and lifecycle events for a single game session
 public final class SessionProcess {
@@ -122,13 +119,15 @@ public final class SessionProcess {
 
     boolean onPlayerJoin(Player player) {
         if (!canJoin()) {
-            Logger.log(Level.WARNING, "Player cannot join this session process");
+            logger.log(Level.WARNING, "Player cannot join this session process");
             return false;
         }
         persistent_players.add(player.getUniqueId());
+        index.add(player, this);
+        // Capture before the game hook runs, otherwise items the game hands out would end up in the snapshot
+        player_states.capture(player);
         broadcastMessage(Component.text(player.getName() + " joined the game", NamedTextColor.GREEN));
         safeHookCall("onPlayerJoin", () -> game.onPlayerJoin(player));
-        //TODO need to capture player inventory state
 
         if (state() == States.WAITING && persistent_players.size() >= type.minPlayers()) {
             beginCountdown();
@@ -142,10 +141,17 @@ public final class SessionProcess {
             return;
         }
         broadcastMessage(Component.text(player.getName() + " left the game", NamedTextColor.RED));
+        // Restore after the game hook, so the game can still see what the leaving player was carrying
         safeHookCall("onPlayerLeave", () -> game.onPlayerLeave(player));
+        player_states.restore(player);
+        index.remove(player);
 
-        //TODO need to restore player inventory state
-        //TODO handle case for players leaving during countdown
+        if (persistent_players.isEmpty()) {
+            dispose();
+        } else if (state() == States.STARTING && persistent_players.size() < type.minPlayers()) {
+            state_machine.setState(States.WAITING);
+            broadcastMessage(Component.text("Not enough players, countdown cancelled", NamedTextColor.RED));
+        }
     }
 
     public void broadcastMessage(Component message) {
@@ -166,8 +172,8 @@ public final class SessionProcess {
     }
 
     private void start() {
-        if (state() != States.WAITING) {
-            logger.log(Level.WARNING, "Attempted to start session that is not waiting");
+        if (state() != States.STARTING) {
+            logger.log(Level.WARNING, "Attempted to start session that is not counting down");
             return;
         }
         state_machine.nextState();
@@ -208,8 +214,8 @@ public final class SessionProcess {
                     dispose();
                 }
             }
-            default -> {
-                logger.log(Level.WARNING, "Session tick called in invalid state: " + state());
+            // Waiting sessions are ticked 20 times a second too, nothing to do and nothing to log
+            case States.WAITING, States.DISPOSED -> {
             }
         }
     }
@@ -223,9 +229,13 @@ public final class SessionProcess {
     }
 
     void dispose() {
+        // Several paths lead here (last player leaving, ENDING timing out, a crashing hook), a second call is normal
         if (state() == States.DISPOSED) {
-            logger.log(Level.WARNING, "Attempted to dispose session that is already disposed");
             return;
+        }
+        // StateManager only allows DISPOSED from ENDING, so an early dispose passes through ENDING first
+        if (state() != States.ENDING) {
+            state_machine.setState(States.ENDING);
         }
         state_machine.nextState();
         try {
@@ -233,23 +243,21 @@ public final class SessionProcess {
         } catch (Exception e) {
             logger.log(Level.SEVERE, "onDispose failed in " + describe(), e);
         } finally {
-            List<Player> players = players();
-            for (Player player : players) {
-                //player_states.restore(player);
-
+            for (Player player : players()) {
+                player_states.restore(player);
+                index.remove(player);
             }
-            players.clear();
+            persistent_players.clear();
             events.clear();
             on_dispose.accept(this);
         }
-
     }
 
     private void safeHookCall(String hookName, Runnable hook) {
         try {
             hook.run();
         } catch (Exception e) {
-             logger.log(Level.SEVERE, hook + " failed in " + describe() + ", disposing session", e);
+            logger.log(Level.SEVERE, hookName + " failed in " + describe() + ", disposing session", e);
             dispose();
         }
     }

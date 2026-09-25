@@ -57,7 +57,12 @@ public record PlayerSnapshot(
     }
 
     public void apply(Player player) {
-        player.getInventory().setContents(inventory);
+        ItemStack[] contents = new ItemStack[inventory.length];
+        for (int i = 0; i < inventory.length; i++) {
+            // null is the only empty slot every inventory implementation agrees on, an AIR stack can block addItem
+            contents[i] = inventory[i].isEmpty() ? null : inventory[i].clone();
+        }
+        player.getInventory().setContents(contents);
         player.teleport(location());
         player.setGameMode(gameMode);
         player.setHealth(Math.min(health, maxHealth(player)));

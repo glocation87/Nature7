@@ -5,6 +5,7 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.bukkit.Material;
 import net.kyori.adventure.text.Component;
+import io.github.glocation87.nature7.engine.MinigameProcess;
 import io.github.glocation87.nature7.engine.SessionProcess;
 
 public record GameType(
@@ -13,7 +14,7 @@ public record GameType(
     Material icon,
     int minPlayers,
     int maxPlayers,
-    Function<SessionProcess, Boolean> factory
+    Function<SessionProcess, ? extends MinigameProcess> factory
 ) {
     private static final Pattern ID_PATTERN = Pattern.compile("^[a-z0-9_]+$");
     public GameType {

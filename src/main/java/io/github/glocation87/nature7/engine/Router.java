@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
 public final class Router implements Listener {
     private final Plugin plugin;
     private final SessionIndex index;
-    private final Set<Class<? extends Events>> registered = new HashSet<>();
+    private final Set<Class<? extends Event>> registered = new HashSet<>();
 
     public Router(Plugin plugin, SessionIndex index) {
         this.plugin = plugin;
@@ -37,9 +37,7 @@ public final class Router implements Listener {
 
         Player subject = subjectOf(event);
         if (subject != null) {
-            index.getSession(subject).ifPresent(session ->
-                session.dispatch(type, event);
-            )
+            index.getSession(subject).ifPresent(session -> session.dispatch(type, event));
         }
     }
 
@@ -51,7 +49,7 @@ public final class Router implements Listener {
             case BlockPlaceEvent e -> e.getPlayer();
             case InventoryInteractEvent e when e.getWhoClicked() instanceof Player player -> player;
             default -> null;
-        }
+        };
     }
 
 }

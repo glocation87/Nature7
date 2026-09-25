@@ -17,12 +17,11 @@ public final class StateManager {
     private States current_state;
 
     public States nextState() {
-        States _nextState;
-        if (current_state.ordinal() >= States.values().length) {
-            _nextState = States.DISPOSED;
+        // DISPOSED is the last state, indexing past it would throw ArrayIndexOutOfBoundsException
+        if (current_state == States.DISPOSED) {
+            throw new IllegalStateException("Cannot jump from DISPOSED state");
         }
-        _nextState = States.values()[current_state.ordinal() + 1];
-        return jumpTo(_nextState);
+        return jumpTo(States.values()[current_state.ordinal() + 1]);
     }
 
     public States getCurrentState() {
@@ -69,6 +68,7 @@ public final class StateManager {
         }
 
         if (canJumpTo(newState)) {
+            previous_state = current_state;
             current_state = newState;
             return newState;
         }
