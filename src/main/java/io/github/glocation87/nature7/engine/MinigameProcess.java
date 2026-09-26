@@ -4,7 +4,6 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
-import io.github.glocation87.nature7.engine.SessionProcess;
 
 /*
 * Minigame base class contract
@@ -48,8 +47,8 @@ public abstract class MinigameProcess {
     }
 
     //Event dispatch listener hook
-    protected final <E extends Event> void listen(Class<E> type, Consumer<? super E> event_handler) {
-        session.events().listen(type, event_handler);
+    protected final <E extends Event> void listen(Class<E> type, Consumer<? super E> eventHandler) {
+        session.events().listen(type, eventHandler);
     }
 
 }

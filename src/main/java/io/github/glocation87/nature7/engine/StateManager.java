@@ -1,35 +1,28 @@
 package io.github.glocation87.nature7.engine;
 
-enum States {
-    WAITING,
-    STARTING,
-    ACTIVE,
-    ENDING,
-    DISPOSED;
-}
-
 public final class StateManager {
+    private States previousState;
+    private States currentState;
+
     StateManager() {
-        previous_state = States.DISPOSED;
-        current_state = States.WAITING;
+        previousState = States.DISPOSED;
+        currentState = States.WAITING;
     }
-    private States previous_state;
-    private States current_state;
 
     public States nextState() {
         // DISPOSED is the last state, indexing past it would throw ArrayIndexOutOfBoundsException
-        if (current_state == States.DISPOSED) {
+        if (currentState == States.DISPOSED) {
             throw new IllegalStateException("Cannot jump from DISPOSED state");
         }
-        return jumpTo(States.values()[current_state.ordinal() + 1]);
+        return jumpTo(States.values()[currentState.ordinal() + 1]);
     }
 
     public States getCurrentState() {
-        return current_state;
+        return currentState;
     }
 
     public States getPreviousState() {
-        return previous_state;
+        return previousState;
     }
 
     public boolean canTransitionTo(States newState) {
@@ -40,7 +33,7 @@ public final class StateManager {
             return false;
         }
         return canJumpTo(newState);
-    };
+    }
 
     private boolean canJumpTo(States newState) {
         switch (newState) {
@@ -68,8 +61,8 @@ public final class StateManager {
         }
 
         if (canJumpTo(newState)) {
-            previous_state = current_state;
-            current_state = newState;
+            previousState = currentState;
+            currentState = newState;
             return newState;
         }
         throw new IllegalStateException("Cannot jump from " + this.getCurrentState().name() + " to " + newState.name());
@@ -83,7 +76,7 @@ public final class StateManager {
         if (newState == States.DISPOSED && this.getCurrentState() != States.ENDING) {
             throw new IllegalStateException("Can only jump to DISPOSED from ENDING state");
         }
-        previous_state = current_state;
-        current_state = newState;
+        previousState = currentState;
+        currentState = newState;
     }
 }
