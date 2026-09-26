@@ -10,6 +10,8 @@ import io.github.glocation87.nature7.engine.SessionIndex;
 import io.github.glocation87.nature7.engine.SessionManager;
 import io.github.glocation87.nature7.player.PlayerConnectionListener;
 import io.github.glocation87.nature7.player.PlayerStateService;
+import io.github.glocation87.nature7.games.*;
+import io.github.glocation87.nature7.games.laststanding.LastStanding;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.util.List;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -23,7 +25,7 @@ public class NatureEngine extends JavaPlugin {
     public void onEnable() {
         // The one registry of games, shared with everything that needs to look games up
         GameRegistry registry = new GameRegistry();
-        //TODO register minigames
+        registry.register(LastStanding.TYPE);
 
         //manual dependency injection sequence more work but worth it lol
         playerStates = new PlayerStateService(getDataPath().resolve("snapshots"), getLogger());

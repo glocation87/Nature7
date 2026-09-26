@@ -29,6 +29,8 @@ tasks {
     compileJava {
         options.encoding = "UTF-8"
         options.release = 25
+        // Report every warning category, "processing" is noise from annotation processors we don't use
+        options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-processing"))
     }
 
     processResources {
@@ -49,5 +51,7 @@ tasks {
 
     test {
         useJUnitPlatform()
+        // MockBukkit's ByteBuddy still uses sun.misc.Unsafe, silence the JDK 25 warning so real problems stand out
+        jvmArgs("--sun-misc-unsafe-memory-access=allow")
     }
 }

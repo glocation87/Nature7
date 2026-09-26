@@ -37,15 +37,15 @@ public final class StateManager {
 
     private boolean canJumpTo(States newState) {
         switch (newState) {
-            case (States.WAITING):
+            case States.WAITING:
                 return this.getCurrentState() == States.ENDING;
-            case (States.STARTING):
+            case States.STARTING:
                 return this.getCurrentState() == States.WAITING;
-            case (States.DISPOSED):
+            case States.DISPOSED:
                 return true;
-            case (States.ACTIVE):
+            case States.ACTIVE:
                 return this.getCurrentState() == States.STARTING;
-            case (States.ENDING):
+            case States.ENDING:
                 return this.getCurrentState() == States.ACTIVE;
             default:
                 return false;

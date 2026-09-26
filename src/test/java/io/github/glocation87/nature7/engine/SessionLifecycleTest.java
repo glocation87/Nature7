@@ -265,8 +265,8 @@ class SessionLifecycleTest {
         PlayerMock outsider = playerWithDiamonds("Eve");
         join(alice);
 
-        alice.simulateSneak(true);
-        outsider.simulateSneak(true);
+        server.getPluginManager().callEvent(new PlayerToggleSneakEvent(alice, true));
+        server.getPluginManager().callEvent(new PlayerToggleSneakEvent(outsider, true));
 
         assertTrue(calls.contains("sneak:Alice"));
         assertFalse(calls.contains("sneak:Eve"));
