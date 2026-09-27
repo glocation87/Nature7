@@ -171,6 +171,20 @@ public final class SessionProcess {
         safeHookCall("onEnd", game::onEnd);
     }
 
+    boolean forceStart() {
+        if (persistentPlayers.isEmpty()) {
+            return false;
+        }
+        if (state() == States.WAITING) {
+            stateMachine.nextState();
+        }
+        if (state() != States.STARTING) {
+            return false;
+        }
+        start();
+        return true;
+    }
+
     private void start() {
         if (state() != States.STARTING) {
             logger.log(Level.WARNING, "Attempted to start session that is not counting down");

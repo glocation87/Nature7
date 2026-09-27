@@ -48,7 +48,9 @@ public final class SessionManager {
         index.getSession(player).ifPresent(session -> session.onPlayerLeave(player));
     }
 
-    public void forceStart(SessionProcess session) {}
+    public boolean forceStart(SessionProcess session) {
+        return session.forceStart();
+    }
 
     public List<SessionProcess> getActiveSessions() {
         return Collections.unmodifiableList(activeSessions);

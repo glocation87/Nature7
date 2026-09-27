@@ -43,7 +43,9 @@ public final class NatureCommand {
                     })
                     .executes(this::join)))
             .then(Commands.literal("leave").executes(this::leave))
-            .then(Commands.literal("forcestart").executes(this::forcestart))
+            .then(Commands.literal("forcestart")
+                .requires(source -> source.getSender().hasPermission("nature7.admin"))
+                .executes(this::forceStart))
             .then(Commands.literal("list").executes(this::list))
             .build();
     }
@@ -97,7 +99,7 @@ public final class NatureCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private int forcestart(CommandContext<CommandSourceStack> ctx) {
+    private int forceStart(CommandContext<CommandSourceStack> ctx) {
         Player player = requirePlayer(ctx);
         if (player == null) {
             return 0;
@@ -107,8 +109,10 @@ public final class NatureCommand {
             player.sendMessage(Component.text("You are not in a game", NamedTextColor.RED));
             return 0;
         }
-        sessionManager.forceStart(session.get());
-        player.sendMessage(Component.text("Game started!", NamedTextColor.GREEN));
+        if (!sessionManager.forceStart(session.get())) {
+            player.sendMessage(Component.text("This game has already started", NamedTextColor.RED));
+            return 0;
+        }
         return Command.SINGLE_SUCCESS;
     }
 
