@@ -16,6 +16,9 @@ import java.util.logging.Logger;
 import net.kyori.adventure.text.Component;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.Bukkit;
+import java.util.UUID;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.inventory.ItemStack;
@@ -54,13 +57,15 @@ class SessionLifecycleTest {
         }
 
         @Override
-        protected void onPlayerJoin(Player player) {
+        protected void onPlayerJoin(UUID playerId) {
+            Player player = Bukkit.getPlayer(playerId);
             calls.add("join:" + player.getName());
             player.getInventory().addItem(ItemStack.of(Material.IRON_SWORD));
         }
 
         @Override
-        protected void onPlayerLeave(Player player) {
+        protected void onPlayerLeave(UUID playerId) {
+            Player player = Bukkit.getPlayer(playerId);
             calls.add("leave:" + player.getName() + ":sword=" + player.getInventory().contains(Material.IRON_SWORD));
         }
 

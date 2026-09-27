@@ -10,7 +10,6 @@ import io.github.glocation87.nature7.engine.SessionIndex;
 import io.github.glocation87.nature7.engine.SessionManager;
 import io.github.glocation87.nature7.player.PlayerConnectionListener;
 import io.github.glocation87.nature7.player.PlayerStateService;
-import io.github.glocation87.nature7.games.*;
 import io.github.glocation87.nature7.games.laststanding.LastStanding;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.util.List;

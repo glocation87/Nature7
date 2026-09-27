@@ -1,5 +1,6 @@
 package io.github.glocation87.nature7.engine;
 
+import java.util.UUID;
 import java.util.Objects;
 import java.util.function.Consumer;
 import org.bukkit.entity.Player;
@@ -22,11 +23,11 @@ public abstract class MinigameProcess {
 
     }
 
-    protected void onPlayerJoin(Player player) {
+    protected void onPlayerJoin(UUID playerId) {
 
     }
 
-    protected void onPlayerLeave(Player player) {
+    protected void onPlayerLeave(UUID playerId) {
 
     }
 

@@ -127,7 +127,7 @@ public final class SessionProcess {
         // Capture before the game hook runs, otherwise items the game hands out would end up in the snapshot
         playerStates.capture(player);
         broadcastMessage(Component.text(player.getName() + " joined the game", NamedTextColor.GREEN));
-        safeHookCall("onPlayerJoin", () -> game.onPlayerJoin(player));
+        safeHookCall("onPlayerJoin", () -> game.onPlayerJoin(player.getUniqueId()));
 
         if (state() == States.WAITING && persistentPlayers.size() >= type.minPlayers()) {
             beginCountdown();
@@ -142,7 +142,7 @@ public final class SessionProcess {
         }
         broadcastMessage(Component.text(player.getName() + " left the game", NamedTextColor.RED));
         // Restore after the game hook, so the game can still see what the leaving player was carrying
-        safeHookCall("onPlayerLeave", () -> game.onPlayerLeave(player));
+        safeHookCall("onPlayerLeave", () -> game.onPlayerLeave(player.getUniqueId()));
         playerStates.restore(player);
         index.remove(player);
 
