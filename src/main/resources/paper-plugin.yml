@@ -1,10 +1,14 @@
 name: Nature7
 version: '${version}'
 main: io.github.glocation87.nature7.NatureEngine
+loader: io.github.glocation87.nature7.NatureLoader
 api-version: '26.2'
 description: A minigame engine.
 
 permissions:
   nature7.admin:
-    description: Force start sessions and other admin commands.
+    description: Force start sessions and set the lobby.
+    default: op
+  nature7.build:
+    description: Break and place blocks in the lobby.
     default: op

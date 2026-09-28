@@ -13,7 +13,11 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.2.build.129-stable")
+    // Downloaded at runtime by NatureLoader, so it isn't bundled into the jar
+    compileOnly("org.spongepowered:configurate-yaml:4.2.0")
+
     testImplementation("io.papermc.paper:paper-api:26.2.build.129-stable")
+    testImplementation("org.spongepowered:configurate-yaml:4.2.0")
     // A fake server for tests, so Player, worlds and scheduling work without running Minecraft
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.2:4.116.1")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
