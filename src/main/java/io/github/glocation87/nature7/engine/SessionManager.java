@@ -3,37 +3,32 @@ package io.github.glocation87.nature7.engine;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
-import java.util.logging.Logger;
 import org.bukkit.entity.Player;
-import io.github.glocation87.nature7.player.PlayerStateService;
 import io.github.glocation87.nature7.types.GameType;
 
 public final class SessionManager {
-    private final Logger logger;
-    private final SessionIndex index;
+    private final SessionServices services;
     private final Router router;
-    private final PlayerStateService playerStates;
     private final List<SessionProcess> activeSessions = new ArrayList<>();
 
-    public SessionManager(SessionIndex index, Router router, PlayerStateService playerStates, Logger logger) {
-        this.logger = logger;
-        this.index = index;
+    public SessionManager(SessionServices services, Router router) {
+        this.services = services;
         this.router = router;
-        this.playerStates = playerStates;
     }
 
     //wrapper for SessionProcess.create()
     private SessionProcess createSessionProcess(GameType minigameType) {
-        SessionProcess newProcess = SessionProcess.create(
-            minigameType, playerStates, index, router::ensureRegistered, activeSessions::remove, logger);
+        SessionProcess newProcess = SessionProcess.create(minigameType, services, router::ensureRegistered, activeSessions::remove);
         activeSessions.add(newProcess);
         return newProcess;
     }
 
-    public Optional<SessionProcess> joinSession(Player player, GameType minigameType) {
-        if (index.getSession(player).isPresent()) {
-            return Optional.empty();
+    public JoinResult joinSession(Player player, GameType minigameType) {
+        if (services.index().getSession(player).isPresent()) {
+            return JoinResult.ALREADY_IN_GAME;
+        }
+        if (services.maps().mapsFor(minigameType.id()).isEmpty()) {
+            return JoinResult.NO_MAPS;
         }
         // player is not mapped to any session, search for an available one or create one
         SessionProcess selectedSession = activeSessions.stream()
@@ -41,11 +36,12 @@ public final class SessionManager {
             .findFirst()
             .orElseGet(() -> createSessionProcess(minigameType));
 
-        return selectedSession.onPlayerJoin(player) ? Optional.of(selectedSession) : Optional.empty();
+        selectedSession.onPlayerJoin(player);
+        return JoinResult.JOINED;
     }
 
     public void leaveSession(Player player) {
-        index.getSession(player).ifPresent(session -> session.onPlayerLeave(player));
+        services.index().getSession(player).ifPresent(session -> session.onPlayerLeave(player));
     }
 
     public boolean forceStart(SessionProcess session) {

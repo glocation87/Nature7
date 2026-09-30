@@ -14,6 +14,7 @@ public record GameType(
     Material icon,
     int minPlayers,
     int maxPlayers,
+    Class<?> mapSchema,
     Function<SessionProcess, ? extends MinigameProcess> factory
 ) {
     private static final Pattern ID_PATTERN = Pattern.compile("^[a-z0-9_]+$");
@@ -21,6 +22,7 @@ public record GameType(
         Objects.requireNonNull(id, "id cannot be null");
         Objects.requireNonNull(displayName, "displayName cannot be null");
         Objects.requireNonNull(icon, "icon cannot be null");
+        Objects.requireNonNull(mapSchema, "mapSchema cannot be null");
         Objects.requireNonNull(factory, "factory cannot be null");
 
         if (!ID_PATTERN.matcher(id).matches()) {

@@ -1,9 +1,10 @@
 package io.github.glocation87.nature7.engine;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.Objects;
 import java.util.function.Consumer;
-import org.bukkit.entity.Player;
+import net.kyori.adventure.text.Component;
 import org.bukkit.event.Event;
 
 /*
@@ -45,6 +46,11 @@ public abstract class MinigameProcess {
 
     protected void onDispose() {
 
+    }
+
+    // lines the game adds to the middle of the sidebar while it's active, the engine owns the rest
+    protected List<Component> sidebar() {
+        return List.of();
     }
 
     //Event dispatch listener hook

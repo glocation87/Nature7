@@ -5,9 +5,11 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.github.glocation87.nature7.engine.GameRegistry;
+import io.github.glocation87.nature7.engine.JoinResult;
 import io.github.glocation87.nature7.engine.SessionIndex;
 import io.github.glocation87.nature7.engine.SessionManager;
 import io.github.glocation87.nature7.engine.SessionProcess;
+import io.github.glocation87.nature7.lobby.Lobby;
 import io.github.glocation87.nature7.types.GameType;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -22,11 +24,13 @@ public final class NatureCommand {
     private final GameRegistry registry;
     private final SessionManager sessionManager;
     private final SessionIndex index;
+    private final Lobby lobby;
 
-    public NatureCommand(GameRegistry registry, SessionManager sessionManager, SessionIndex index) {
+    public NatureCommand(GameRegistry registry, SessionManager sessionManager, SessionIndex index, Lobby lobby) {
         this.registry = registry;
         this.sessionManager = sessionManager;
         this.index = index;
+        this.lobby = lobby;
     }
 
     public LiteralCommandNode<CommandSourceStack> build() {
@@ -47,6 +51,12 @@ public final class NatureCommand {
                 .requires(source -> source.getSender().hasPermission("nature7.admin"))
                 .executes(this::forceStart))
             .then(Commands.literal("list").executes(this::list))
+            .then(Commands.literal("setlobby")
+                .requires(source -> source.getSender().hasPermission("nature7.admin"))
+                .executes(ctx -> setLocation(ctx, true)))
+            .then(Commands.literal("setwaiting")
+                .requires(source -> source.getSender().hasPermission("nature7.admin"))
+                .executes(ctx -> setLocation(ctx, false)))
             .build();
     }
 
@@ -75,12 +85,9 @@ public final class NatureCommand {
             player.sendMessage(Component.text("Unknown minigame: " + id, NamedTextColor.RED));
             return 0;
         }
-        if (index.getSession(player).isPresent()) {
-            player.sendMessage(Component.text("You are already in a game, use /nature7 leave first", NamedTextColor.RED));
-            return 0;
-        }
-        if (sessionManager.joinSession(player, type.get()).isEmpty()) {
-            player.sendMessage(Component.text("Could not join " + id + " right now", NamedTextColor.RED));
+        JoinResult result = sessionManager.joinSession(player, type.get());
+        if (result != JoinResult.JOINED) {
+            player.sendMessage(result.message());
             return 0;
         }
         return Command.SINGLE_SUCCESS;
@@ -112,6 +119,21 @@ public final class NatureCommand {
         if (!sessionManager.forceStart(session.get())) {
             player.sendMessage(Component.text("This game has already started", NamedTextColor.RED));
             return 0;
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int setLocation(CommandContext<CommandSourceStack> ctx, boolean spawn) {
+        Player player = requirePlayer(ctx);
+        if (player == null) {
+            return 0;
+        }
+        if (spawn) {
+            lobby.setSpawn(player.getLocation());
+            player.sendMessage(Component.text("Lobby spawn set", NamedTextColor.GREEN));
+        } else {
+            lobby.setWaitingRoom(player.getLocation());
+            player.sendMessage(Component.text("Waiting room set", NamedTextColor.GREEN));
         }
         return Command.SINGLE_SUCCESS;
     }

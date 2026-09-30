@@ -34,6 +34,7 @@ public final class LastStanding extends MinigameProcess {
         Material.IRON_SWORD,
         1,
         1,
+        LastStandingMap.class,
         LastStanding::new
     );
 

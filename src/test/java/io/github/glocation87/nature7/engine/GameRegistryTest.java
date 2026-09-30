@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class GameRegistryTest {
 
     private static GameType type(String id) {
-        return new GameType(id, Component.text(id), Material.STONE, 1, 4, s -> null);
+        return new GameType(id, Component.text(id), Material.STONE, 1, 4, Object.class, s -> null);
     }
 
     @Test
