@@ -3,30 +3,33 @@ package io.github.glocation87.nature7.games.laststanding;
 import io.github.glocation87.nature7.engine.MinigameProcess;
 import io.github.glocation87.nature7.engine.SessionProcess;
 import io.github.glocation87.nature7.engine.States;
+import io.github.glocation87.nature7.map.Point;
 import io.github.glocation87.nature7.types.GameType;
+import io.github.glocation87.nature7.world.MapInstance;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
-import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
+// one player against a horde of buffed zombies, kill them all to win
 public final class LastStanding extends MinigameProcess {
     public static final GameType TYPE = new GameType(
         "last_standing",
@@ -38,10 +41,7 @@ public final class LastStanding extends MinigameProcess {
         LastStanding::new
     );
 
-    private static final double ARENA_X = -63.23;
-    private static final double ARENA_Z = -86.377;
     private static final int ZOMBIE_COUNT = 10;
-    private static final double ZOMBIE_RADIUS = 10.0;
     private static final double ZOMBIE_HEALTH = 30.0;
     private static final double ZOMBIE_DAMAGE = 5.0;
     private static final double ZOMBIE_SPEED = 0.28;
@@ -49,7 +49,6 @@ public final class LastStanding extends MinigameProcess {
     private static final long NIGHT_TIME = 18000L;
 
     private final List<Zombie> zombies = new ArrayList<>();
-    private Location arenaCenter;
 
     private LastStanding(SessionProcess session) {
         super(session);
@@ -57,25 +56,12 @@ public final class LastStanding extends MinigameProcess {
 
     @Override
     protected void onSetup() {
-        arenaCenter = surfaceAt(Bukkit.getWorlds().getFirst(), ARENA_X, ARENA_Z);
         listen(EntityDamageEvent.class, this::onDamage);
+        listen(EntityDeathEvent.class, this::onDeath);
+        listen(PlayerMoveEvent.class, this::onMove);
         listen(PlayerDropItemEvent.class, event -> event.setCancelled(true));
-    }
-
-    @Override
-    protected void onPlayerJoin(UUID playerId) {
-        Player player = Bukkit.getPlayer(playerId);
-        if (player != null) {
-            player.teleport(arenaCenter);
-        }
-    }
-
-    @Override
-    protected void onPlayerLeave(UUID playerId) {
-        Player player = Bukkit.getPlayer(playerId);
-        if (player != null) {
-            player.resetPlayerTime();
-        }
+        listen(BlockBreakEvent.class, event -> event.setCancelled(true));
+        listen(BlockPlaceEvent.class, event -> event.setCancelled(true));
     }
 
     @Override
@@ -84,9 +70,13 @@ public final class LastStanding extends MinigameProcess {
         if (players.isEmpty()) {
             return;
         }
+        MapInstance map = session.map();
+        List<Point> spawns = map.data(LastStandingMap.class).spawns();
+        // the match world is ours alone, so night can be set on the world itself
+        map.world().setTime(NIGHT_TIME);
+
         Player player = players.getFirst();
-        player.teleport(arenaCenter);
-        player.setPlayerTime(NIGHT_TIME, false);
+        player.teleport(map.location(spawns.getFirst()));
         player.addPotionEffect(new PotionEffect(PotionEffectType.HEALTH_BOOST, PotionEffect.INFINITE_DURATION, 4));
         player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, PotionEffect.INFINITE_DURATION, 0));
         player.setHealth(attributeValue(player, Attribute.MAX_HEALTH));
@@ -96,13 +86,10 @@ public final class LastStanding extends MinigameProcess {
         sword.editMeta(Damageable.class, meta -> meta.setDamage(Material.IRON_SWORD.getMaxDurability() - SWORD_USES_LEFT));
         player.getInventory().addItem(sword, ItemStack.of(Material.IRON_AXE));
 
-        World world = arenaCenter.getWorld();
+        // spawn 0 is the player's, zombies take the rest and double up if the map has fewer than 10
         for (int i = 0; i < ZOMBIE_COUNT; i++) {
-            double angle = 2 * Math.PI * i / ZOMBIE_COUNT;
-            Location spawn = surfaceAt(world,
-                arenaCenter.getX() + Math.cos(angle) * ZOMBIE_RADIUS,
-                arenaCenter.getZ() + Math.sin(angle) * ZOMBIE_RADIUS);
-            Zombie zombie = world.spawn(spawn, Zombie.class, LastStanding::powerUp);
+            Point spawn = spawns.get(1 + i % (spawns.size() - 1));
+            Zombie zombie = map.world().spawn(map.location(spawn), Zombie.class, LastStanding::powerUp);
             zombie.setTarget(player);
             zombies.add(zombie);
         }
@@ -110,27 +97,33 @@ public final class LastStanding extends MinigameProcess {
     }
 
     @Override
-    protected void onTick(long tick) {
-        int before = zombies.size();
-        // Polled because the router only forwards events about players, a zombie's death event never reaches us
-        zombies.removeIf(Zombie::isDead);
+    protected void onEnd() {
+        for (Zombie zombie : zombies) {
+            zombie.remove();
+        }
+        zombies.clear();
+    }
+
+    @Override
+    protected List<Component> sidebar() {
+        return List.of(Component.text("Zombies left: ", NamedTextColor.GRAY)
+            .append(Component.text(zombies.size(), NamedTextColor.WHITE)));
+    }
+
+    // zombies aren't players, this only arrives because the router finds the session by the match world
+    private void onDeath(EntityDeathEvent event) {
+        if (!(event.getEntity() instanceof Zombie zombie) || !zombies.remove(zombie)) {
+            return;
+        }
+        event.setDroppedExp(0);
+        if (session.state() != States.ACTIVE) {
+            return;
+        }
         if (zombies.isEmpty()) {
             session.end(session.players().stream().findFirst().orElse(null));
-        } else if (zombies.size() < before) {
-            session.broadcastMessage(Component.text(zombies.size() + " zombies left", NamedTextColor.YELLOW));
-        }
-    }
-
-    @Override
-    protected void onEnd() {
-        removeZombies();
-    }
-
-    @Override
-    protected void onDispose() {
-        removeZombies();
-        for (Player player : session.players()) {
-            player.resetPlayerTime();
+        } else {
+            String left = zombies.size() == 1 ? "1 zombie left" : zombies.size() + " zombies left";
+            session.broadcastMessage(Component.text(left, NamedTextColor.YELLOW));
         }
     }
 
@@ -145,22 +138,33 @@ public final class LastStanding extends MinigameProcess {
         // Cancel the killing blow so there's no death screen, no dropped items and no respawn
         if (event.getFinalDamage() >= player.getHealth()) {
             event.setCancelled(true);
-            player.setGameMode(GameMode.SPECTATOR);
-            session.broadcastMessage(Component.text(player.getName() + " was overwhelmed", NamedTextColor.RED));
-            session.end(null);
+            lose(player, "was overwhelmed");
         }
     }
 
-    private void removeZombies() {
-        for (Zombie zombie : zombies) {
-            zombie.remove();
+    private void onMove(PlayerMoveEvent event) {
+        // fires on every head turn, skip anything that didn't change block before doing real work
+        if (!event.hasChangedBlock() || session.state() != States.ACTIVE) {
+            return;
         }
-        zombies.clear();
+        if (!session.map().info().bounds().contains(event.getTo())) {
+            lose(event.getPlayer(), "fell out of the arena");
+        }
+    }
+
+    private void lose(Player player, String reason) {
+        if (session.state() != States.ACTIVE) {
+            return;
+        }
+        MapInstance map = session.map();
+        player.setGameMode(GameMode.SPECTATOR);
+        player.teleport(map.location(map.info().spectatorSpawn()));
+        session.broadcastMessage(Component.text(player.getName() + " " + reason, NamedTextColor.RED));
+        session.end(null);
     }
 
     private static void powerUp(Zombie zombie) {
         zombie.setAdult();
-        zombie.setShouldBurnInDay(false);
         zombie.setRemoveWhenFarAway(false);
         zombie.setLootTable(null);
         zombie.getEquipment().clear();
@@ -180,11 +184,5 @@ public final class LastStanding extends MinigameProcess {
     private static double attributeValue(LivingEntity entity, Attribute attribute) {
         AttributeInstance instance = entity.getAttribute(attribute);
         return instance == null ? 20.0 : instance.getValue();
-    }
-
-    private static Location surfaceAt(World world, double x, double z) {
-        int blockX = (int) Math.floor(x);
-        int blockZ = (int) Math.floor(z);
-        return new Location(world, blockX + 0.5, world.getHighestBlockYAt(blockX, blockZ) + 1, blockZ + 0.5);
     }
 }
