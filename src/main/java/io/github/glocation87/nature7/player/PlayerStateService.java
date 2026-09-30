@@ -81,7 +81,7 @@ public final class PlayerStateService {
         }
     }
 
-    private static void reset(Player player) {
+    public static void reset(Player player) {
         player.getInventory().clear();
         player.setGameMode(GameMode.ADVENTURE);
         player.setHealth(PlayerSnapshot.maxHealth(player));

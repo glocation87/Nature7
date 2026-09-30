@@ -1,0 +1,3 @@
+# Set in game with /nature7 setlobby and /nature7 setwaiting.
+# Until then the main world's spawn is used for both.
+lobby: {}
