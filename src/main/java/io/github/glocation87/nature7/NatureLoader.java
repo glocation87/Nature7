@@ -15,6 +15,7 @@ public final class NatureLoader implements PluginLoader {
         resolver.addRepository(new RemoteRepository.Builder(
             "central", "default", MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR).build());
         resolver.addDependency(new Dependency(new DefaultArtifact("org.spongepowered:configurate-yaml:4.2.0"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("org.xerial:sqlite-jdbc:3.53.4.0"), null));
         classpathBuilder.addLibrary(resolver);
     }
 }

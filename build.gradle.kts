@@ -15,9 +15,11 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:26.2.build.129-stable")
     // Downloaded at runtime by NatureLoader, so it isn't bundled into the jar
     compileOnly("org.spongepowered:configurate-yaml:4.2.0")
+    compileOnly("org.xerial:sqlite-jdbc:3.53.4.0")
 
     testImplementation("io.papermc.paper:paper-api:26.2.build.129-stable")
     testImplementation("org.spongepowered:configurate-yaml:4.2.0")
+    testImplementation("org.xerial:sqlite-jdbc:3.53.4.0")
     // A fake server for tests, so Player, worlds and scheduling work without running Minecraft
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.2:4.116.1")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
@@ -55,7 +57,7 @@ tasks {
 
     test {
         useJUnitPlatform()
-        // MockBukkit's ByteBuddy still uses sun.misc.Unsafe, silence the JDK 25 warning so real problems stand out
-        jvmArgs("--sun-misc-unsafe-memory-access=allow")
+        // MockBukkit's ByteBuddy uses sun.misc.Unsafe and sqlite loads a native lib, silence both JDK 25 warnings so real problems stand out
+        jvmArgs("--sun-misc-unsafe-memory-access=allow", "--enable-native-access=ALL-UNNAMED")
     }
 }
