@@ -1,0 +1,22 @@
+# Kits for SkyWars. Each key under kits is one kit.
+# Item types are Minecraft material names, enchantments use their Minecraft ids.
+kits:
+  builder:
+    name: Builder
+    icon: OAK_PLANKS
+    items:
+      - {type: WOODEN_PICKAXE}
+      - {type: OAK_PLANKS, amount: 32}
+  archer:
+    name: Archer
+    icon: BOW
+    items:
+      - {type: BOW}
+      - {type: ARROW, amount: 8}
+  knight:
+    name: Knight
+    icon: STONE_SWORD
+    items:
+      - {type: STONE_SWORD, enchantments: {sharpness: 1}}
+    armor:
+      chestplate: LEATHER_CHESTPLATE

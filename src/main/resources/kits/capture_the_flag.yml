@@ -1,0 +1,32 @@
+# Kits for Capture the Flag.
+# No helmets: a flag carrier wears the enemy banner on their head.
+kits:
+  warrior:
+    name: Warrior
+    icon: IRON_SWORD
+    items:
+      - {type: IRON_SWORD}
+      - {type: COOKED_BEEF, amount: 8}
+    armor:
+      chestplate: IRON_CHESTPLATE
+      leggings: LEATHER_LEGGINGS
+      boots: LEATHER_BOOTS
+  archer:
+    name: Archer
+    icon: BOW
+    items:
+      - {type: STONE_SWORD}
+      - {type: BOW, enchantments: {power: 1}}
+      - {type: ARROW, amount: 32}
+      - {type: COOKED_BEEF, amount: 8}
+    armor:
+      chestplate: LEATHER_CHESTPLATE
+  scout:
+    name: Scout
+    icon: FEATHER
+    items:
+      - {type: WOODEN_SWORD}
+      - {type: ENDER_PEARL, amount: 2}
+      - {type: COOKED_BEEF, amount: 8}
+    armor:
+      boots: DIAMOND_BOOTS

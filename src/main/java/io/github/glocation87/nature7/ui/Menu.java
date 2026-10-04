@@ -21,6 +21,11 @@ public final class Menu implements InventoryHolder {
         this.inventory = Bukkit.createInventory(this, rows * 9, title);
     }
 
+    // whole rows that fit this many buttons, between 1 and 6
+    public static int rowsFor(int buttons) {
+        return Math.clamp((buttons + 8) / 9, 1, 6);
+    }
+
     public void set(int slot, Button button) {
         buttons.put(slot, button);
         inventory.setItem(slot, button.icon());
