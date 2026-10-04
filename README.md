@@ -37,7 +37,6 @@ A game installs what it needs in its constructor. Modules run before the game in
 1. Needs Paper 26.2 and Java 25
 2. Drop the jar in `plugins/` and start the server. Configurate and the SQLite driver are downloaded on first start, so that start needs internet
 3. Stand where you want them and run `/n7 setlobby` and `/n7 setwaiting`
-4. Add maps (see below). [LmsMaps](../lms-maps) generates maps for all four games straight into the right folders
 
 ## Commands
 `/nature7`, alias `/n7`
