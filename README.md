@@ -105,7 +105,7 @@ private Spleef(SessionProcess session, GameResources resources) {
 
 ## Building
 ```
-./gradlew build      # build/libs/Nature7-0.1.0-SNAPSHOT.jar
+./gradlew build      # build/libs/Nature7-1.1.0.jar
 ./gradlew test       # unit tests and build/reports/jacoco/test/html
 ./gradlew runServer  # dev server on port 25566
 ```
@@ -121,4 +121,4 @@ private Spleef(SessionProcess session, GameResources resources) {
 - `lobby/`, `ui/`, `item/` the lobby, menus and tagged hotbar items
 
 ## License
-<!-- TODO: pick a license -->
+MIT, see [LICENSE](LICENSE).
