@@ -11,6 +11,7 @@ import io.github.glocation87.nature7.engine.SessionManager;
 import io.github.glocation87.nature7.engine.SessionServices;
 import io.github.glocation87.nature7.games.GameResources;
 import io.github.glocation87.nature7.games.laststanding.LastStanding;
+import io.github.glocation87.nature7.games.skywars.SkyWars;
 import io.github.glocation87.nature7.games.spleef.Spleef;
 import io.github.glocation87.nature7.item.HotbarItems;
 import io.github.glocation87.nature7.item.ItemTags;
@@ -67,6 +68,7 @@ public class NatureEngine extends JavaPlugin {
         GameRegistry registry = new GameRegistry();
         registry.register(LastStanding.type(resources));
         registry.register(Spleef.type(resources));
+        registry.register(SkyWars.type(resources));
         // kits are found by game id, so they load once the games are registered
         kits.loadAll(registry.all().stream().map(GameType::id).toList());
 
