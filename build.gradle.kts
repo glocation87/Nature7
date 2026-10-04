@@ -1,5 +1,6 @@
 plugins {
     java
+    jacoco
     id("xyz.jpenilla.run-paper") version "3.1.0"
 }
 
@@ -57,6 +58,7 @@ tasks {
 
     test {
         useJUnitPlatform()
+        finalizedBy(jacocoTestReport)
         // MockBukkit's ByteBuddy uses sun.misc.Unsafe and sqlite loads a native lib, silence both JDK 25 warnings so real problems stand out
         jvmArgs("--sun-misc-unsafe-memory-access=allow", "--enable-native-access=ALL-UNNAMED")
     }
