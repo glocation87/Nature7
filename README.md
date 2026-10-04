@@ -1,25 +1,43 @@
 # Nature7
-Minigame engine for Paper 26.2. Runs game sessions with a lobby, map voting and a fresh copy of the map world for every match. Games plug in as small classes.
+Minigame engine for Paper 26.2. Runs game sessions with a lobby, map voting and a fresh copy of the map world for every match. Games are small classes built from reusable modules.
+
+![Build](https://github.com/glocation87/Nature7/actions/workflows/build.yml/badge.svg)
 
 <!-- TODO: screenshot or short gif of a match -->
-
-## Features
-- Join from the lobby compass or `/n7 join`, wait in a waiting room, then a 15 second countdown starts the match
-- Map vote between 3 random maps, closes 5 seconds before the start, ties are broken fairly
-- Every match plays on its own copy of the map world, deleted afterwards. Copies left over from a crash are cleaned up on startup
-- Your inventory, location, health, hunger and XP are saved before a game and restored after, even if the server crashes mid match
-- Protected lobby, sidebar and bossbar HUD, game selector and vote menus whose items can't be taken out
 
 ## Games
 | Game | Players | What happens |
 | --- | --- | --- |
-| Last Standing | 1 | Survive 10 buffed zombies at night on the voted map with a sword that's nearly broken |
+| Last Standing | 1 | Survive 10 buffed zombies at night with a sword that's nearly broken |
+| Spleef | 2-16 | Dig the snow out from under everyone else, snowballs knock out blocks from range |
+| SkyWars | 2-12 | Loot your island, fight for the richer centre, chests refill at 3:00, shrinking border deathmatch at 5:00 |
+| Capture the Flag | 2-16 | Red vs blue with kits and respawns, first to 3 captures or the higher score at 10:00 |
+
+## Engine
+- Join from the lobby compass or `/n7 join`, wait in a waiting room, then a 15 second countdown starts the match
+- Map vote between 3 random maps, closes 5 seconds before the start, ties are broken fairly
+- Every match plays on its own copy of the map world, deleted afterwards. Copies left over from a crash are cleaned up on startup
+- Your inventory, location, health, hunger and XP are saved before a game and restored after, even if the server crashes mid match
+- Events reach only the session they belong to, by player or by match world, with priorities inside a session
+- A game that throws only takes down its own session
+
+## Modules
+A game installs what it needs in its constructor. Modules run before the game in install order and tear down after it in reverse.
+
+| Module | Gives a game |
+| --- | --- |
+| `TeamsModule` | Balanced teams, coloured names, no friendly fire |
+| `KitModule` | Kits from `kits/<game>.yml` with a picker in the waiting hotbar |
+| `SpectatorModule` | Invisible flying spectators with a teleport compass |
+| `DeathModule` | No death screens, lives, respawn timers, spawn protection, kill credit |
+| `StatsModule` | Games, wins, kills and deaths saved to SQLite |
+| `TimelineModule` | Timed events like a chest refill, with a countdown on the sidebar |
 
 ## Installing
 1. Needs Paper 26.2 and Java 25
-2. Drop the jar in `plugins/` and start the server. Configurate is downloaded on first start, so that start needs internet
+2. Drop the jar in `plugins/` and start the server. Configurate and the SQLite driver are downloaded on first start, so that start needs internet
 3. Stand where you want them and run `/n7 setlobby` and `/n7 setwaiting`
-4. Add maps (see below). [LmsMaps](../lms-maps) generates Last Standing maps straight into the right folder
+4. Add maps (see below). [LmsMaps](../lms-maps) generates maps for all four games straight into the right folders
 
 ## Commands
 `/nature7`, alias `/n7`
@@ -29,6 +47,7 @@ Minigame engine for Paper 26.2. Runs game sessions with a lobby, map voting and 
 | `/n7 join <game>` | Joins or starts a session | everyone |
 | `/n7 leave` | Back to the lobby | everyone |
 | `/n7 list` | Running sessions and their player counts | everyone |
+| `/n7 stats [player]` | Games, wins, kills, deaths and K/D for each game | everyone |
 | `/n7 forcestart` | Starts your session now | `nature7.admin` |
 | `/n7 setlobby` / `setwaiting` | Sets the lobby or waiting room spawn | `nature7.admin` |
 
@@ -48,41 +67,57 @@ spectator-spawn: {x: 0.5, y: 88.0, z: 0.5, yaw: 0.0, pitch: 90.0}
 bounds:
   min: {x: -58, y: 30, z: -58}
   max: {x: 58, y: 90, z: 58}
-game:                 # per game, Last Standing wants spawns
-  spawns:             # the first is the player, the rest are where zombies come from
+game:                 # different for each game
+  spawns:
     - {x: 32.5, y: 65.0, z: 9.5, yaw: 105.7, pitch: 0.0}
     - {x: 23.5, y: 65.0, z: 23.5, yaw: 135.0, pitch: 0.0}
 ```
+
+| Game | `game:` keys |
+| --- | --- |
+| `last_standing` | `spawns` (the first is the player, the rest are zombie spawns) |
+| `spleef` | `spawns` |
+| `skywars` | `spawns`, `center`, `island-chests`, `center-chests` |
+| `capture_the_flag` | `red-spawns`, `blue-spawns`, `red-flag`, `blue-flag` |
+
 `source` and `license` are optional extra fields for crediting a map.
 
 ## Adding a game
-Extend `MinigameProcess` and override the hooks you need (`onSetup`, `onPlayerJoin`, `onPlayerLeave`, `onStart`, `onTick`, `onEnd`, `onDispose`). Describe it with a `GameType` and register it in `NatureEngine`:
+Extend `MinigameProcess`, install the modules you need in the constructor and override the hooks you care about (`onSetup`, `onPlayerJoin`, `onPlayerLeave`, `onStart`, `onTick`, `onEnd`, `onDispose`). Then register its `GameType` in `NatureEngine`:
 
 ```java
-public static final GameType TYPE = new GameType(
-    "last_standing",                                   // id, also the maps folder name
-    Component.text("Last Standing", NamedTextColor.GREEN),
-    Material.IRON_SWORD,                               // icon in the game selector
-    1, 1,                                              // min and max players
-    LastStandingMap.class,                             // record the game: section of map.yml loads into
-    LastStanding::new);
+public static GameType type(GameResources resources) {
+    return new GameType("spleef", Component.text("Spleef", NamedTextColor.AQUA), Material.DIAMOND_SHOVEL,
+        2, 16, SpleefMap.class, session -> new Spleef(session, resources));
+}
 
-registry.register(LastStanding.TYPE);
+private Spleef(SessionProcess session, GameResources resources) {
+    super(session);
+    install(new SpectatorModule(resources.plugin(), resources.tags()));
+    deaths = install(DeathModule.builder().onEliminated(player -> checkForWinner()).build());
+    install(new StatsModule(resources.stats()));
+}
 ```
+
+## Testing
+- JUnit and MockBukkit unit tests for the engine, maps, modules, kits, stats and loot, with a JaCoCo coverage report on every run
+- `tools/playtest/bots.js` plays real matches with Mineflayer bots: a Last Standing win and loss, Spleef digging and eliminations, SkyWars kits and loot, three Capture the Flag captures, then reads the stats back
 
 ## Building
 ```
 ./gradlew build      # build/libs/Nature7-0.1.0-SNAPSHOT.jar
-./gradlew test       # JUnit + MockBukkit
+./gradlew test       # unit tests and build/reports/jacoco/test/html
 ./gradlew runServer  # dev server on port 25566
 ```
 
 ## Code
-- `engine/` sessions, the state machine (waiting, starting, active, ending), routing events to the right session and the HUD
+- `engine/` sessions and their state machine, modules, routing events to sessions, the HUD
+- `module/` teams, kits, spectators, deaths, stats and timelines
 - `games/` one package per game
 - `map/` loading and validating `map.yml`, the map registry and voting
 - `world/` copying a map world for each match and deleting it afterwards
 - `player/` saving and restoring player state around a game
+- `kit/`, `stats/`, `loot/` kit files, the SQLite stats service, weighted loot tables
 - `lobby/`, `ui/`, `item/` the lobby, menus and tagged hotbar items
 
 ## License
