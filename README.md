@@ -19,7 +19,6 @@ Minigame engine for Paper 26.2. Runs game sessions with a lobby, map voting and 
 1. Needs Paper 26.2 and Java 25
 2. Drop the jar in `plugins/` and start the server. Configurate is downloaded on first start, so that start needs internet
 3. Stand where you want them and run `/n7 setlobby` and `/n7 setwaiting`
-4. Add maps (see below). [LmsMaps](../lms-maps) generates Last Standing maps straight into the right folder
 
 ## Commands
 `/nature7`, alias `/n7`
