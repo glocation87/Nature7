@@ -3,11 +3,16 @@ package io.github.glocation87.nature7.games.laststanding;
 import io.github.glocation87.nature7.engine.MinigameProcess;
 import io.github.glocation87.nature7.engine.SessionProcess;
 import io.github.glocation87.nature7.engine.States;
+import io.github.glocation87.nature7.games.GameResources;
 import io.github.glocation87.nature7.map.Point;
+import io.github.glocation87.nature7.module.DeathModule;
+import io.github.glocation87.nature7.module.SpectatorModule;
+import io.github.glocation87.nature7.module.StatsModule;
 import io.github.glocation87.nature7.types.GameType;
 import io.github.glocation87.nature7.world.MapInstance;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.GameMode;
@@ -20,7 +25,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -31,16 +35,6 @@ import org.bukkit.potion.PotionEffectType;
 
 // one player against a horde of buffed zombies, kill them all to win
 public final class LastStanding extends MinigameProcess {
-    public static final GameType TYPE = new GameType(
-        "last_standing",
-        Component.text("Last Standing", NamedTextColor.GREEN),
-        Material.IRON_SWORD,
-        1,
-        1,
-        LastStandingMap.class,
-        LastStanding::new
-    );
-
     private static final int ZOMBIE_COUNT = 10;
     private static final double ZOMBIE_HEALTH = 30.0;
     private static final double ZOMBIE_DAMAGE = 5.0;
@@ -48,15 +42,32 @@ public final class LastStanding extends MinigameProcess {
     private static final int SWORD_USES_LEFT = 15;
     private static final long NIGHT_TIME = 18000L;
 
+    public static GameType type(GameResources resources) {
+        return new GameType(
+            "last_standing",
+            Component.text("Last Standing", NamedTextColor.GREEN),
+            Material.IRON_SWORD,
+            1,
+            1,
+            LastStandingMap.class,
+            session -> new LastStanding(session, resources)
+        );
+    }
+
+    private final DeathModule deaths;
+    private final StatsModule stats;
     private final List<Zombie> zombies = new ArrayList<>();
 
-    private LastStanding(SessionProcess session) {
+    // the death module now cancels the killing blow and turns you into a spectator, losing is just ending the game
+    private LastStanding(SessionProcess session, GameResources resources) {
         super(session);
+        install(new SpectatorModule(resources.plugin(), resources.tags()));
+        deaths = install(DeathModule.builder().onEliminated(player -> session.end(null)).build());
+        stats = install(new StatsModule(resources.stats()));
     }
 
     @Override
     protected void onSetup() {
-        listen(EntityDamageEvent.class, this::onDamage);
         listen(EntityDeathEvent.class, this::onDeath);
         listen(PlayerMoveEvent.class, this::onMove);
         listen(PlayerDropItemEvent.class, event -> event.setCancelled(true));
@@ -77,6 +88,7 @@ public final class LastStanding extends MinigameProcess {
 
         Player player = players.getFirst();
         player.teleport(map.location(spawns.getFirst()));
+        player.setGameMode(GameMode.SURVIVAL);
         player.addPotionEffect(new PotionEffect(PotionEffectType.HEALTH_BOOST, PotionEffect.INFINITE_DURATION, 4));
         player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, PotionEffect.INFINITE_DURATION, 0));
         player.setHealth(attributeValue(player, Attribute.MAX_HEALTH));
@@ -94,6 +106,14 @@ public final class LastStanding extends MinigameProcess {
             zombies.add(zombie);
         }
         session.broadcastMessage(Component.text("Survive " + ZOMBIE_COUNT + " zombies!", NamedTextColor.YELLOW));
+    }
+
+    // solo game, the only player leaving ends the session anyway
+    @Override
+    protected void onPlayerLeave(UUID playerId) {
+        if (session.state() == States.ACTIVE && deaths.alivePlayers().isEmpty()) {
+            session.end(null);
+        }
     }
 
     @Override
@@ -119,26 +139,15 @@ public final class LastStanding extends MinigameProcess {
         if (session.state() != States.ACTIVE) {
             return;
         }
+        Player killer = zombie.getKiller();
+        if (killer != null) {
+            stats.creditKill(killer);
+        }
         if (zombies.isEmpty()) {
-            session.end(session.players().stream().findFirst().orElse(null));
+            session.end(deaths.alivePlayers().stream().findFirst().orElse(null));
         } else {
             String left = zombies.size() == 1 ? "1 zombie left" : zombies.size() + " zombies left";
             session.broadcastMessage(Component.text(left, NamedTextColor.YELLOW));
-        }
-    }
-
-    private void onDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player player)) {
-            return;
-        }
-        if (session.state() != States.ACTIVE) {
-            event.setCancelled(true);
-            return;
-        }
-        // Cancel the killing blow so there's no death screen, no dropped items and no respawn
-        if (event.getFinalDamage() >= player.getHealth()) {
-            event.setCancelled(true);
-            lose(player, "was overwhelmed");
         }
     }
 
@@ -148,19 +157,8 @@ public final class LastStanding extends MinigameProcess {
             return;
         }
         if (!session.map().info().bounds().contains(event.getTo())) {
-            lose(event.getPlayer(), "fell out of the arena");
+            deaths.kill(event.getPlayer());
         }
-    }
-
-    private void lose(Player player, String reason) {
-        if (session.state() != States.ACTIVE) {
-            return;
-        }
-        MapInstance map = session.map();
-        player.setGameMode(GameMode.SPECTATOR);
-        player.teleport(map.location(map.info().spectatorSpawn()));
-        session.broadcastMessage(Component.text(player.getName() + " " + reason, NamedTextColor.RED));
-        session.end(null);
     }
 
     private static void powerUp(Zombie zombie) {

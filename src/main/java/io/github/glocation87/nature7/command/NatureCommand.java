@@ -10,6 +10,7 @@ import io.github.glocation87.nature7.engine.SessionIndex;
 import io.github.glocation87.nature7.engine.SessionManager;
 import io.github.glocation87.nature7.engine.SessionProcess;
 import io.github.glocation87.nature7.lobby.Lobby;
+import io.github.glocation87.nature7.stats.StatsCommand;
 import io.github.glocation87.nature7.types.GameType;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -25,12 +26,15 @@ public final class NatureCommand {
     private final SessionManager sessionManager;
     private final SessionIndex index;
     private final Lobby lobby;
+    private final StatsCommand statsCommand;
 
-    public NatureCommand(GameRegistry registry, SessionManager sessionManager, SessionIndex index, Lobby lobby) {
+    public NatureCommand(GameRegistry registry, SessionManager sessionManager, SessionIndex index, Lobby lobby,
+            StatsCommand statsCommand) {
         this.registry = registry;
         this.sessionManager = sessionManager;
         this.index = index;
         this.lobby = lobby;
+        this.statsCommand = statsCommand;
     }
 
     public LiteralCommandNode<CommandSourceStack> build() {
@@ -57,6 +61,7 @@ public final class NatureCommand {
             .then(Commands.literal("setwaiting")
                 .requires(source -> source.getSender().hasPermission("nature7.admin"))
                 .executes(ctx -> setLocation(ctx, false)))
+            .then(statsCommand.build())
             .build();
     }
 
