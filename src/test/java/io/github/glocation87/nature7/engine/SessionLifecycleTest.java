@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.glocation87.nature7.games.laststanding.LastStandingMap;
@@ -104,6 +105,51 @@ class SessionLifecycleTest {
         @Override
         protected void onEnd() {
             calls.add("end");
+        }
+
+        @Override
+        protected void onDispose() {
+            calls.add("dispose");
+        }
+    }
+
+    private static final class RecordingModule extends GameModule {
+
+        private final List<String> calls;
+
+        RecordingModule(List<String> calls) {
+            this.calls = calls;
+        }
+
+        @Override
+        protected void onInstall() {
+            calls.add("module:install");
+        }
+
+        @Override
+        protected void onPlayerJoin(Player player) {
+            calls.add("module:join:" + player.getName());
+        }
+
+        @Override
+        protected void onDispose() {
+            calls.add("module:dispose");
+        }
+    }
+
+    private static final class ModularGame extends MinigameProcess {
+
+        private final List<String> calls;
+
+        ModularGame(SessionProcess session, List<String> calls) {
+            super(session);
+            this.calls = calls;
+            install(new RecordingModule(calls));
+        }
+
+        @Override
+        protected void onPlayerJoin(UUID playerId) {
+            calls.add("join:" + Bukkit.getPlayer(playerId).getName());
         }
 
         @Override
@@ -407,5 +453,24 @@ class SessionLifecycleTest {
         assertRestored(alice);
         assertRestored(bob);
         assertTrue(sessions.getActiveSessions().isEmpty());
+    }
+
+    @Test
+    void modulesRunBeforeTheGameAndAreTornDownAfterIt() {
+        GameType modular = new GameType("test_game", Component.text("test"), Material.STONE, 2, 3, LastStandingMap.class,
+            session -> new ModularGame(session, calls));
+        PlayerMock alice = playerWithDiamonds("Alice");
+        join(alice, modular);
+
+        sessions.leaveSession(alice);
+
+        assertEquals(List.of("module:install", "module:join:Alice", "join:Alice", "dispose", "module:dispose"), calls);
+    }
+
+    @Test
+    void modulesCanOnlyBeInstalledDuringSetup() {
+        SessionProcess session = join(playerWithDiamonds("Alice"));
+
+        assertThrows(IllegalStateException.class, () -> session.install(new RecordingModule(calls)));
     }
 }

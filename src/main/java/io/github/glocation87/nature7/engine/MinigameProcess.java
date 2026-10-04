@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import org.bukkit.event.Event;
+import org.bukkit.event.EventPriority;
 
 /*
 * Minigame base class contract
@@ -53,9 +54,18 @@ public abstract class MinigameProcess {
         return List.of();
     }
 
+    // only works in the constructor, install throws once setup is done
+    protected final <M extends GameModule> M install(M module) {
+        return session.install(module);
+    }
+
     //Event dispatch listener hook
     protected final <E extends Event> void listen(Class<E> type, Consumer<? super E> eventHandler) {
-        session.events().listen(type, eventHandler);
+        listen(type, EventPriority.NORMAL, eventHandler);
+    }
+
+    protected final <E extends Event> void listen(Class<E> type, EventPriority priority, Consumer<? super E> eventHandler) {
+        session.events().listen(type, priority, eventHandler);
     }
 
 }

@@ -6,28 +6,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.bukkit.event.Event;
+import org.bukkit.event.EventPriority;
 
 final class EventDispatcher {
-    private final Map<Class<? extends Event>, List<Consumer<Event>>> listeners = new HashMap<>();
+    private record Listener(EventPriority priority, Consumer<Event> callback) {
+    }
+
+    private final Map<Class<? extends Event>, List<Listener>> listeners = new HashMap<>();
     private final Consumer<Class<? extends Event>> registrarCallback;
 
     EventDispatcher(Consumer<Class<? extends Event>> registrarCallback) {
         this.registrarCallback = registrarCallback;
     }
 
-    // update listener registry if event is absent
-    // populate listener with type -> List<Consumer<Event>>>, each type maps to a list of callbacks
-    <E extends Event> void listen(Class<E> eventType, Consumer<? super E> eventHandler) {
-        //invoke registrar callback on every .listen call
+    // each type keeps its callbacks sorted by priority, same priority stays in the order it was added
+    <E extends Event> void listen(Class<E> eventType, EventPriority priority, Consumer<? super E> eventHandler) {
         registrarCallback.accept(eventType);
-        listeners.computeIfAbsent(eventType, key -> new ArrayList<>()).add(event -> eventHandler.accept(eventType.cast(event)));
+        List<Listener> list = listeners.computeIfAbsent(eventType, key -> new ArrayList<>());
+        int index = 0;
+        while (index < list.size() && list.get(index).priority().getSlot() <= priority.getSlot()) {
+            index++;
+        }
+        list.add(index, new Listener(priority, event -> eventHandler.accept(eventType.cast(event))));
     }
 
     void dispatch(Class<? extends Event> eventType, Event event) {
-        List<Consumer<Event>> list = listeners.get(eventType);
+        List<Listener> list = listeners.get(eventType);
         if (list == null) return;
-        for (Consumer<Event> callback : list) {
-            callback.accept(event);
+        for (Listener listener : list) {
+            listener.callback().accept(event);
         }
     }
 

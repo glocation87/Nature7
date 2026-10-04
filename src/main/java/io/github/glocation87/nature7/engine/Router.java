@@ -3,6 +3,7 @@ package io.github.glocation87.nature7.engine;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -23,6 +24,8 @@ public final class Router implements Listener {
     private final Plugin plugin;
     private final SessionIndex index;
     private final Set<Class<? extends Event>> registered = new HashSet<>();
+    // written from whatever thread fired the event
+    private final Set<Class<? extends Event>> warnedAsync = ConcurrentHashMap.newKeySet();
 
     public Router(Plugin plugin, SessionIndex index) {
         this.plugin = plugin;
@@ -37,6 +40,13 @@ public final class Router implements Listener {
 
     private void route(Class<? extends Event> type, Event event) {
         if (!type.isInstance(event)) {
+            return;
+        }
+        // game code is all main thread, chat and pre-login events would race the tick loop
+        if (event.isAsynchronous()) {
+            if (warnedAsync.add(type)) {
+                plugin.getLogger().warning(type.getSimpleName() + " fires off the main thread and can't be routed to sessions");
+            }
             return;
         }
         sessionFor(event).ifPresent(session -> session.dispatch(type, event));

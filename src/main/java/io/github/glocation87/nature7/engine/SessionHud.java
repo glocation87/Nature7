@@ -27,6 +27,10 @@ final class SessionHud {
         bossBar = BossBar.bossBar(title, 1.0f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS);
     }
 
+    Scoreboard scoreboard() {
+        return scoreboard;
+    }
+
     void show(Player player) {
         player.setScoreboard(scoreboard);
         player.showBossBar(bossBar);

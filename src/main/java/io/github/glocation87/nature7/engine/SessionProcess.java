@@ -1,12 +1,15 @@
 package io.github.glocation87.nature7.engine;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.logging.Level;
+import java.util.random.RandomGenerator;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -15,6 +18,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
+import org.bukkit.scoreboard.Scoreboard;
 import org.jspecify.annotations.Nullable;
 import io.github.glocation87.nature7.map.GameMap;
 import io.github.glocation87.nature7.map.MapVote;
@@ -37,9 +41,12 @@ public final class SessionProcess {
     private final MapVote vote;
     private final SessionHud hud;
     private final Set<UUID> persistentPlayers = new LinkedHashSet<>();
+    private final List<GameModule> modules = new ArrayList<>();
+    private final Set<UUID> winners = new LinkedHashSet<>();
 
     // Session runtime actors
     private MinigameProcess game;
+    private boolean setUp;
     private StateManager stateMachine;
     private @Nullable MapInstance instance;
     private int countdown;
@@ -77,6 +84,7 @@ public final class SessionProcess {
         SessionProcess session = new SessionProcess(type, services, new EventDispatcher(registrarCallback), onDispose, candidates);
         session.game = type.factory().apply(session);
         session.game.onSetup();
+        session.setUp = true;
         return session;
     }
 
@@ -106,6 +114,40 @@ public final class SessionProcess {
             throw new IllegalStateException("The map is only available once the game has started");
         }
         return instance;
+    }
+
+    public Scoreboard scoreboard() {
+        return hud.scoreboard();
+    }
+
+    public RandomGenerator random() {
+        return services.random();
+    }
+
+    public <M extends GameModule> Optional<M> module(Class<M> moduleType) {
+        for (GameModule module : modules) {
+            if (moduleType.isInstance(module)) {
+                return Optional.of(moduleType.cast(module));
+            }
+        }
+        return Optional.empty();
+    }
+
+    public boolean isWinner(UUID player) {
+        return winners.contains(player);
+    }
+
+    <M extends GameModule> M install(M module) {
+        if (setUp) {
+            throw new IllegalStateException("Modules can only be installed while the game is being set up");
+        }
+        if (module(module.getClass()).isPresent()) {
+            throw new IllegalStateException(module.getClass().getSimpleName() + " is already installed");
+        }
+        module.attach(this);
+        modules.add(module);
+        module.onInstall();
+        return module;
     }
 
     EventDispatcher events() {
@@ -146,7 +188,7 @@ public final class SessionProcess {
         services.hotbar().giveWaitingItems(player);
         hud.show(player);
         broadcastMessage(Component.text(player.getName() + " joined the game (" + playerCount() + "/" + type.maxPlayers() + ")", NamedTextColor.GREEN));
-        safeHookCall("onPlayerJoin", () -> game.onPlayerJoin(player.getUniqueId()));
+        hook("onPlayerJoin", module -> module.onPlayerJoin(player), () -> game.onPlayerJoin(player.getUniqueId()));
 
         if (state() == States.WAITING && persistentPlayers.size() >= type.minPlayers()) {
             beginCountdown();
@@ -163,7 +205,7 @@ public final class SessionProcess {
         vote.retract(player.getUniqueId());
         broadcastMessage(Component.text(player.getName() + " left the game", NamedTextColor.RED));
         // Restore after the game hook, so the game can still see what the leaving player was carrying
-        safeHookCall("onPlayerLeave", () -> game.onPlayerLeave(player.getUniqueId()));
+        hook("onPlayerLeave", module -> module.onPlayerLeave(player), () -> game.onPlayerLeave(player.getUniqueId()));
         hud.hide(player);
         services.playerStates().restore(player);
         services.index().remove(player);
@@ -182,6 +224,15 @@ public final class SessionProcess {
     }
 
     public void end(@Nullable Player winner) {
+        if (winner == null) {
+            end(Component.text("Game Over", NamedTextColor.RED), List.of());
+        } else {
+            end(Component.text("Winner: " + winner.getName(), NamedTextColor.GREEN), List.of(winner));
+        }
+    }
+
+    // team games win as a group, so the winners are a list
+    public void end(Component headline, Collection<Player> winningPlayers) {
         if (state() != States.ACTIVE) {
             services.logger().log(Level.WARNING, "Attempted to end session that is not active");
             return;
@@ -189,9 +240,11 @@ public final class SessionProcess {
 
         stateMachine.nextState();
         endingTicks = ENDING_TICKS;
-        Component headline = winner == null ? Component.text("Game Over", NamedTextColor.RED) : Component.text("Winner: " + winner.getName(), NamedTextColor.GREEN);
+        for (Player player : winningPlayers) {
+            winners.add(player.getUniqueId());
+        }
         Audience.audience(players()).showTitle(Title.title(headline, type.displayName()));
-        safeHookCall("onEnd", game::onEnd);
+        hook("onEnd", GameModule::onEnd, game::onEnd);
         updateHud();
     }
 
@@ -227,7 +280,7 @@ public final class SessionProcess {
             player.teleport(spectate);
         }
         broadcastMessage(Component.text("Go!", NamedTextColor.GREEN));
-        safeHookCall("onStart", game::onStart);
+        hook("onStart", GameModule::onStart, game::onStart);
     }
 
     private void beginCountdown() {
@@ -289,8 +342,8 @@ public final class SessionProcess {
         switch (state()) {
             case States.STARTING -> tickStarting();
             case States.ACTIVE -> {
-                activeTicks++;
-                safeHookCall("onTick", () -> game.onTick(activeTicks));
+                long tick = ++activeTicks;
+                hook("onTick", module -> module.onTick(tick), () -> game.onTick(tick));
             }
             case States.ENDING -> {
                 endingTicks--;
@@ -326,9 +379,11 @@ public final class SessionProcess {
         }
         stateMachine.nextState();
         try {
-            game.onDispose();
-        } catch (Exception e) {
-            services.logger().log(Level.SEVERE, "onDispose failed in " + describe(), e);
+            // torn down in reverse: the game, then modules last installed first
+            disposeQuietly("game", game::onDispose);
+            for (GameModule module : modules.reversed()) {
+                disposeQuietly(module.getClass().getSimpleName(), module::onDispose);
+            }
         } finally {
             for (Player player : players()) {
                 hud.hide(player);
@@ -359,7 +414,7 @@ public final class SessionProcess {
             case States.STARTING -> lines.add(countdown > 0
                 ? Component.text("Starting in " + countdown + "s", NamedTextColor.YELLOW)
                 : Component.text("Loading map...", NamedTextColor.YELLOW));
-            case States.ACTIVE -> safeHookCall("sidebar", () -> lines.addAll(game.sidebar()));
+            case States.ACTIVE -> hook("sidebar", module -> lines.addAll(module.sidebar()), () -> lines.addAll(game.sidebar()));
             case States.ENDING -> lines.add(Component.text("Game over", NamedTextColor.RED));
             case States.DISPOSED -> {
             }
@@ -378,6 +433,27 @@ public final class SessionProcess {
 
     private static Component label(String name, String value) {
         return Component.text(name + ": ", NamedTextColor.GRAY).append(Component.text(value, NamedTextColor.WHITE));
+    }
+
+    // modules first so the game always sees their state already updated, stops if a hook disposed the session
+    private void hook(String hookName, Consumer<GameModule> moduleHook, Runnable gameHook) {
+        for (GameModule module : modules) {
+            if (state() == States.DISPOSED) {
+                return;
+            }
+            safeHookCall(module.getClass().getSimpleName() + "." + hookName, () -> moduleHook.accept(module));
+        }
+        if (state() != States.DISPOSED) {
+            safeHookCall(hookName, gameHook);
+        }
+    }
+
+    private void disposeQuietly(String owner, Runnable action) {
+        try {
+            action.run();
+        } catch (Exception e) {
+            services.logger().log(Level.SEVERE, owner + " onDispose failed in " + describe(), e);
+        }
     }
 
     // A crashing game should take down its own session, not the tick loop or other sessions
