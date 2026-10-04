@@ -6,3 +6,4 @@ plans/
 .vscode/
 *.iml
 bin/
+node_modules/
