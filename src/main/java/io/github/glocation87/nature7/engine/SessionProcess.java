@@ -55,7 +55,6 @@ public final class SessionProcess {
     private long activeTicks;
     private long ticks;
 
-    // Session constructor is private to enforce factory pattern
     private SessionProcess(
         GameType type,
         SessionServices services,
@@ -73,7 +72,7 @@ public final class SessionProcess {
         stateMachine = new StateManager();
     }
 
-    //factory pattern, idea is all sessions are created through static class constructor
+    //factory pattern, build the session then feed it to whoever needs it when appropriate
     protected static SessionProcess create(
         GameType type,
         SessionServices services,
